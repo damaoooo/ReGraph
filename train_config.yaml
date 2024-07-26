@@ -1,0 +1,28 @@
+# Hyper-parameter for training
+train:
+  seed: 1
+  max_epochs: 200
+  batch_size: 4
+  num_workers: 4
+  pool_size: 50
+  k_fold: 0
+
+hyper_parameters:
+  lr: 0.0004
+  alpha: 0.2
+  dropout: 0.3
+  hidden_features: 64
+  n_heads: 6
+  output_features: 128
+  exclusive_arch: null
+  exclusive_opt: null
+
+  redis: false
+  mode: pool
+
+path:
+  # data_path: dataset/coreutil
+  data_name: openplc
+  data_path: dataset/openplc
+  # load_checkpoint: "lightning_logs/version_9/checkpoints/last.ckpt"
+  load_checkpoint: ""
