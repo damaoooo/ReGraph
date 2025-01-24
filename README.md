@@ -1,6 +1,6 @@
 # ReGraph
 
-Our experiments are conducted in a Linux machine with NVIDIA GPUs, we haven't done compatibility tests on other platforms.
+Our experiments are conducted on a Linux machine with NVIDIA GPUs, and we haven't done compatibility tests on other platforms. Additional Technical Report can be found in this [link](https://github.com/damaoooo/ReGraph/blob/main/Additional%20Report.pdf)
 
 ## 0. Run the entire experiment in a Docker container [Optional]
 
@@ -17,7 +17,7 @@ apt-get install sudo git -y
 cd
 ```
 
-Then run the following commands to continue.
+Then, run the following commands to continue.
 
 We don't pack the entire experiment into a Docker image since the docker the image size will be too large.
 
