@@ -127,16 +127,75 @@ class InferenceModel:
         return False
 
     def merge_dgl_dict(self, dataset: dict, graphs: List[dgl.DGLGraph]):
-        pbar = tqdm(total=self.get_dataset_function_num(dataset))
-        pbar.set_description("Converting DGL to Embedding")
+        # Collect all graphs and their positions to be processed
+        tasks = []
+        positions = []
+        for binary in dataset['data']:
+            for function_name in dataset['data'][binary]:
+                for i in range(len(dataset['data'][binary][function_name])):
+                    index = dataset['data'][binary][function_name][i]['index']
+                    tasks.append(graphs[index])
+                    positions.append((binary, function_name, i))
 
-        for binary in dataset["data"]:
-            for function_name in dataset["data"][binary]:
-                for i in range(len(dataset["data"][binary][function_name])):
-                    index = dataset["data"][binary][function_name][i]["index"]
-                    embedding = self.single_dgl_to_embedding(graphs[index])
-                    dataset["data"][binary][function_name][i]["embedding"] = embedding
-                    pbar.update()
+        # Set up progress bar
+        pbar = tqdm(total=len(tasks))
+        pbar.set_description("Padding Graphs")
+        
+        # Process all graphs serially
+        prepared_graphs = {}
+        for i, graph in enumerate(tasks):
+            # Process a single graph
+            padding = self.max_length - graph.num_nodes()
+            graph = dgl.add_nodes(graph, padding)
+            graph = dgl.add_self_loop(graph)
+            prepared_graphs[i] = graph
+            pbar.update()
+        
+        pbar.close()
+
+        print("Finished Converting... Fetching Data From Pool")
+
+        pbar = tqdm(total=(len(tasks)))
+        pbar.set_description("Inference")
+
+        # Batch processing parameters
+        batch_size = 256  # Adjust based on GPU memory size
+        results = [None] * len(tasks)  # Pre-allocate results list
+        
+        # Process prepared graphs in batches
+        for i in range(0, len(tasks), batch_size):
+            batch_indices = range(i, min(i + batch_size, len(tasks)))
+            batch_padding = []
+            
+            # Use already prepared graphs
+            for idx in batch_indices:
+                graph = prepared_graphs[idx]
+                if self.config.cuda:
+                    graph = graph.to('cuda')
+                batch_padding.append(graph)
+            
+            # Batch processing
+            if len(batch_padding) > 0:
+                batched_graphs = dgl.batch(batch_padding)
+                with torch.no_grad():
+                    embeddings = self.model.my_model(batched_graphs)
+                    embeddings = embeddings.detach().cpu().numpy()
+                    # Unbatch and store results
+                    for idx, embedding in zip(batch_indices, np.split(embeddings, len(batch_padding))):
+                        results[idx] = embedding
+            
+            # Periodically clear GPU cache
+            if self.config.cuda:
+                torch.cuda.empty_cache()
+
+            # Update progress bar
+            pbar.update(batch_size)
+
+        # Put results back into the dataset
+        for (binary, function_name, i), embedding in zip(positions, results):
+            dataset['data'][binary][function_name][i]['embedding'] = embedding
+
+        pbar.close()
         return dataset
 
     def test_strip_recall_K(
