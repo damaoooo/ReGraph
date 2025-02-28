@@ -8,6 +8,7 @@ import pandas as pd
 import torch
 from PreProcessor.GraphConverter import Converter
 from inference import load_model, get_pearson_score
+from tqdm import tqdm
 
 JOERN_PATH=""
 
@@ -168,11 +169,47 @@ def c_dot_to_dgl(c_dot_path, convertor: Converter, binary_name, arch, opt):
 def convert_to_embedding(dgl_pool, index_file, model_path):
     with torch.no_grad():
         model = load_model(model_path, use_cuda=False)
-        for i in range(len(index_file)):
-            graph = dgl_pool[index_file[i]["index"]]
-            embedding = model.single_dgl_to_embedding(graph)
-            index_file[i]["embedding"] = embedding
-    return index_file
+        
+        # 设置批处理大小
+        batch_size = 256
+        total_samples = len(index_file)
+        
+        # 创建进度条
+        pbar = tqdm(total=total_samples)
+        pbar.set_description("Converting to embeddings")
+        
+        # 预分配结果列表
+        results = [None] * total_samples
+        
+        # 批量处理
+        for i in range(0, total_samples, batch_size):
+            batch_indices = range(i, min(i + batch_size, total_samples))
+            batch_graphs = []
+            
+            # 准备批处理的图
+            for idx in batch_indices:
+                graph = dgl_pool[index_file[idx]["index"]]
+                batch_graphs.append(graph)
+            
+            # 批处理
+            if len(batch_graphs) > 0:
+                batched_graphs = dgl.batch(batch_graphs)
+                embeddings = model.single_dgl_to_embedding(batched_graphs)
+                embeddings = embeddings.detach().cpu().numpy()
+                
+                # 将结果存储到预分配的列表中
+                for idx, embedding in zip(batch_indices, np.split(embeddings, len(batch_graphs))):
+                    results[idx] = embedding
+            
+            # 更新进度条
+            pbar.update(len(batch_indices))
+        
+        # 将结果写回到index_file中
+        for idx, embedding in enumerate(results):
+            index_file[idx]["embedding"] = embedding
+        
+        pbar.close()
+        return index_file
 
 
 def compute_similarity(index_file_1, index_file_2, topK=10):
