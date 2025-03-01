@@ -1,0 +1,7 @@
+graph_dataset/
+pretrained/
+
+*.xls
+*.xlsx
+
+__pycache__/

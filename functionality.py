@@ -10,7 +10,7 @@ from PreProcessor.GraphConverter import Converter
 from inference import load_model, get_pearson_score
 from tqdm import tqdm
 
-JOERN_PATH=""
+JOERN_PATH="/home/damaoooo/Downloads/joern-cli"
 
 def clean_ext(folder, ext):
     for file in os.listdir(folder):
@@ -174,6 +174,13 @@ def convert_to_embedding(dgl_pool, index_file, model_path):
         batch_size = 256
         total_samples = len(index_file)
         
+        for idx in range(len(dgl_pool)):
+            data = dgl_pool[idx]
+            padding = model.max_length - data.num_nodes()
+            data = dgl.add_nodes(data, padding)
+            data = dgl.add_self_loop(data)
+            dgl_pool[idx] = data
+        
         # 创建进度条
         pbar = tqdm(total=total_samples)
         pbar.set_description("Converting to embeddings")
@@ -195,7 +202,6 @@ def convert_to_embedding(dgl_pool, index_file, model_path):
             if len(batch_graphs) > 0:
                 batched_graphs = dgl.batch(batch_graphs)
                 embeddings = model.single_dgl_to_embedding(batched_graphs)
-                embeddings = embeddings.detach().cpu().numpy()
                 
                 # 将结果存储到预分配的列表中
                 for idx, embedding in zip(batch_indices, np.split(embeddings, len(batch_graphs))):

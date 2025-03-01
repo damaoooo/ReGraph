@@ -4,7 +4,6 @@ import os
 import pickle
 import random
 import time
-
 # import pytorch_lightning as pl
 from typing import List, Union, Dict
 
@@ -22,17 +21,11 @@ DataIndex = Dict[str, Dict[str, List[FunctionBody]]]
 
 class ASTGraphDataset(Dataset):
     def __init__(
-        self,
-        data: list,
-        data_index: DataIndex,
-        max_adj: int,
-        feature_len: int,
-        pool_size: int,
-        mode: str,
-        environment: tuple = None,
+            self, data_path: str, data_index: DataIndex, max_adj: int, feature_len: int, pool_size: int, mode: str,
+            environment: tuple = None
     ) -> None:
         super().__init__()
-        self.data = data
+        self.data_path = data_path
         self.data_index: DataIndex = data_index
         self.binary_list = list(self.data_index.keys())
         self.phases = [0]
@@ -67,24 +60,22 @@ class ASTGraphDataset(Dataset):
 
         binary_index, function_offset = self._find_binary_index(index)
         binary_name = self.binary_list[binary_index]
-        function_name = sorted(list(self.data_index[binary_name].keys()))[
-            function_offset
-        ]
+        function_name = sorted(list(self.data_index[binary_name].keys()))[function_offset]
         sample_function_list = self.data_index[binary_name][function_name]
 
         same_pair = random.sample(sample_function_list, 2)
         sample, same_sample = same_pair[0], same_pair[1]
 
-        if self.mode == "file":
+        if self.mode == 'file':
 
             different_binary_name = random.choice(self.binary_list)
             different_function_name = random.choice(
                 list(self.data_index[different_binary_name].keys())
             )
-
+        
             while (
-                different_function_name == function_name
-                and different_binary_name == binary_name
+                    different_function_name == function_name
+                    and different_binary_name == binary_name
             ):
                 different_binary_name = random.choice(self.binary_list)
                 different_function_name = random.choice(
@@ -94,19 +85,15 @@ class ASTGraphDataset(Dataset):
             different_sample = random.choice(
                 self.data_index[different_binary_name][different_function_name]
             )
-
+        
         else:
             arch = sample["arch"]
             opt = sample["opt"]
             different_sample = sample
-            while arch == sample["arch"] and opt == sample["opt"]:
+            while arch == sample["arch"] or opt == sample["opt"]:
                 random_binary_name = random.choice(self.binary_list)
-                random_function_name = random.choice(
-                    list(self.data_index[random_binary_name].keys())
-                )
-                different_sample = random.choice(
-                    self.data_index[random_binary_name][random_function_name]
-                )
+                random_function_name = random.choice(list(self.data_index[random_binary_name].keys()))
+                different_sample = random.choice(self.data_index[random_binary_name][random_function_name])
 
         different_sample = self._to_tensor(different_sample)
         sample_dict = sample
@@ -116,68 +103,45 @@ class ASTGraphDataset(Dataset):
         # Pool candidates
         if self.pool_size:
             pool = self._get_pool(sample=sample_dict)
-            pool = [self._to_tensor(x) for x in pool]
-            return {
-                "sample": sample,
-                "same_sample": same_sample,
-                "different_sample": different_sample,
-                "label": torch.tensor([0]),
-                "pool": pool,
-            }
+            pool = self._many_to_tensor(pool)
+            return {"sample": sample, "same_sample": same_sample, "different_sample": different_sample,
+                    "label": torch.tensor([0]), "pool": pool}
 
-        return {
-            "sample": sample,
-            "same_sample": same_sample,
-            "different_sample": different_sample,
-            "label": torch.tensor([0]),
-        }
+        return {"sample": sample, "same_sample": same_sample, "different_sample": different_sample,
+                "label": torch.tensor([0])}
 
     def _get_pool(self, sample: dict):
         pool = []
         # Get the function pool that does not contain the function_name
         for p in range(self.pool_size):
             pool_binary_name = random.choice(self.binary_list)
-            pool_function_name = random.choice(
-                list(self.data_index[pool_binary_name].keys())
-            )
-
-            pool_item = random.choice(
-                self.data_index[pool_binary_name][pool_function_name]
-            )
-
-            if self.mode == "file":
+            pool_function_name = random.choice(list(self.data_index[pool_binary_name].keys()))
+            
+            pool_item = random.choice(self.data_index[pool_binary_name][pool_function_name])
+            
+            if self.mode == "file":  
                 while (
-                    pool_binary_name == sample["binary"]
-                    and pool_function_name == sample["name"]
+                        pool_binary_name == sample['binary'] and pool_function_name == sample['name']
                 ):
                     pool_binary_name = random.choice(self.binary_list)
                     pool_function_name = random.choice(
                         list(self.data_index[pool_binary_name].keys())
                     )
-                    pool_item = random.choice(
-                        self.data_index[pool_binary_name][pool_function_name]
-                    )
-
+                    pool_item = random.choice(self.data_index[pool_binary_name][pool_function_name])
+            
             else:
                 random_arch, random_opt = sample["arch"], sample["opt"]
                 pool_item = sample
-                while random_arch == sample["arch"] and random_opt == sample["opt"]:
+                while (random_arch == sample["arch"] and random_opt == sample["opt"]):
                     pool_binary_name = random.choice(self.binary_list)
-                    pool_function_name = random.choice(
-                        list(self.data_index[pool_binary_name].keys())
-                    )
-                    pool_item = random.choice(
-                        self.data_index[pool_binary_name][pool_function_name]
-                    )
+                    pool_function_name = random.choice(list(self.data_index[pool_binary_name].keys()))
+                    pool_item = random.choice(self.data_index[pool_binary_name][pool_function_name])
                     random_arch, random_opt = pool_item["arch"], pool_item["opt"]
-
+                    
             if self.environment:
                 functions = self.data_index[pool_binary_name][pool_function_name]
                 for func in functions:
-                    if (
-                        func["arch"] == self.environment[0]
-                        and func["opt"] == self.environment[1]
-                    ):
+                    if func["arch"] == self.environment[0] and func["opt"] == self.environment[1]:
                         pool.append(func)
                         break
                 pool_item = random.choice(functions)
@@ -190,26 +154,22 @@ class ASTGraphDataset(Dataset):
         pool = []
         for p in range(self.pool_size):
             pool_binary_name = random.choice(self.binary_list)
-            pool_function_name = random.choice(
-                list(self.data_index[pool_binary_name].keys())
-            )
+            pool_function_name = random.choice(list(self.data_index[pool_binary_name].keys()))
             while (
-                pool_binary_name == binary_name and pool_function_name == function_name
+                    pool_binary_name == binary_name and pool_function_name == function_name
             ):
                 pool_binary_name = random.choice(self.binary_list)
                 pool_function_name = random.choice(
                     list(self.data_index[pool_binary_name].keys())
                 )
-            pool.append(
-                random.choice(self.data_index[pool_binary_name][pool_function_name])
-            )
+            pool.append(random.choice(self.data_index[pool_binary_name][pool_function_name]))
 
         return pool
 
     # @profile
     def _to_tensor(self, data: dict):
-        index = data["index"]
-        graph: dgl.DGLGraph = self.data[index]
+        index = data['index']
+        graph: dgl.DGLGraph = dgl.load_graphs(self.data_path, idx_list=[index])[0][0]
 
         if graph.number_of_nodes() < self.max_adj:
             padding_size = self.max_adj - graph.number_of_nodes()
@@ -217,6 +177,16 @@ class ASTGraphDataset(Dataset):
             graph = dgl.add_self_loop(graph)
 
         return graph
+
+    def _many_to_tensor(self, data: List[dict]):
+        indices = [x['index'] for x in data]
+        graphs = dgl.load_graphs(self.data_path, idx_list=indices)[0]
+        for i in range(len(graphs)):
+            if graphs[i].number_of_nodes() < self.max_adj:
+                padding_size = self.max_adj - graphs[i].number_of_nodes()
+                graphs[i] = dgl.add_nodes(graphs[i], padding_size)
+                graphs[i] = dgl.add_self_loop(graphs[i])
+        return graphs
 
 
 def collate_fn(x):
@@ -238,19 +208,10 @@ def collate_fn(x):
             pool_list = x[i]["pool"]
             pool_list = dgl.batch(pool_list)
             batch_list.append(pool_list)
-        return {
-            "sample": sample_list,
-            "same_sample": same_sample_list,
-            "different_sample": different_sample_list,
-            "label": torch.tensor([0]),
-            "pool": batch_list,
-        }
-    return {
-        "sample": sample_list,
-        "same_sample": same_sample_list,
-        "different_sample": different_sample_list,
-        "label": torch.tensor([0]),
-    }
+        return {"sample": sample_list, "same_sample": same_sample_list, "different_sample": different_sample_list,
+                "label": torch.tensor([0]), "pool": batch_list}
+    return {"sample": sample_list, "same_sample": same_sample_list, "different_sample": different_sample_list,
+            "label": torch.tensor([0])}
 
 
 def _load_pickle_data(data_path: str):
@@ -264,33 +225,26 @@ def _load_pickle_data(data_path: str):
 
 
 class ASTGraphRedisDataset(ASTGraphDataset):
-    def __init__(
-        self,
-        data_name: str,
-        redis_connect: redis.ConnectionPool,
-        data_index: DataIndex,
-        pool_size: int,
-    ):
-        super().__init__(
-            data=[],
-            data_index=data_index,
-            max_adj=-1,
-            feature_len=-1,
-            pool_size=pool_size,
-        )
+    def __init__(self,
+                 data_name: str,
+                 redis_connect: redis.ConnectionPool,
+                 data_index: DataIndex,
+                 pool_size: int,
+                 ):
+        super().__init__(data=[], data_index=data_index, max_adj=-1, feature_len=-1, pool_size=pool_size)
         self.redis = redis.Redis(connection_pool=redis_connect)
         self.data_name = data_name
 
     def _to_tensor(self, data: dict):
-        index = data["index"]
-        name = self.data_name + "-" + str(index)
+        index = data['index']
+        name = self.data_name + '-' + str(index)
         graph_bytes: bytes = self.redis.get(name)
         graph: dgl.DGLGraph = pickle.loads(graph_bytes)
         return graph
 
     def _to_tensor_list(self, data: list):
-        indices = [x["index"] for x in data]
-        names = [self.data_name + "-" + str(x) for x in indices]
+        indices = [x['index'] for x in data]
+        names = [self.data_name + '-' + str(x) for x in indices]
         graph_bytes_list: List[bytes] = self.redis.mget(names)
         graph_list: List[dgl.DGLGraph] = [pickle.loads(x) for x in graph_bytes_list]
         return graph_list
@@ -300,9 +254,7 @@ class ASTGraphRedisDataset(ASTGraphDataset):
 
         binary_index, function_offset = self._find_binary_index(index)
         binary_name = self.binary_list[binary_index]
-        function_name = sorted(list(self.data_index[binary_name].keys()))[
-            function_offset
-        ]
+        function_name = sorted(list(self.data_index[binary_name].keys()))[function_offset]
         sample_function_list = self.data_index[binary_name][function_name]
 
         same_pair = random.sample(sample_function_list, 2)
@@ -314,8 +266,8 @@ class ASTGraphRedisDataset(ASTGraphDataset):
         )
 
         while (
-            different_function_name == function_name
-            and different_binary_name == binary_name
+                different_function_name == function_name
+                and different_binary_name == binary_name
         ):
             different_binary_name = random.choice(self.binary_list)
             different_function_name = random.choice(
@@ -334,34 +286,25 @@ class ASTGraphRedisDataset(ASTGraphDataset):
         if self.pool_size:
             pool = self._get_pool(binary_name, function_name)
             pool = self._to_tensor_list(pool)
-            return {
-                "sample": sample,
-                "same_sample": same_sample,
-                "different_sample": different_sample,
-                "label": torch.tensor([0]),
-                "pool": pool,
-            }
+            return {"sample": sample, "same_sample": same_sample, "different_sample": different_sample,
+                    "label": torch.tensor([0]), "pool": pool}
 
-        return {
-            "sample": sample,
-            "same_sample": same_sample,
-            "different_sample": different_sample,
-            "label": torch.tensor([0]),
-        }
+        return {"sample": sample, "same_sample": same_sample, "different_sample": different_sample,
+                "label": torch.tensor([0])}
 
 
 class ASTGraphDataModule(pl.LightningDataModule):
     def __init__(
-        self,
-        data_path: str = "!pairs.pkl",
-        pool_size: int = 0,
-        batch_size: int = 32,
-        num_workers: int = 16,
-        mode: str = "file",
-        exclude: list = None,
-        k_fold: int = 0,
-        exclusive_arch: str = None,
-        exclusive_opt: str = None,
+            self,
+            data_path: str = "!pairs.pkl",
+            pool_size: int = 0,
+            batch_size: int = 32,
+            num_workers: int = 16,
+            mode: str = "file",
+            exclude: list = None,
+            k_fold: int = 0,
+            exclusive_arch: str = None,
+            exclusive_opt: str = None,
     ) -> None:
         super().__init__()
         self.data_path = data_path
@@ -388,40 +331,14 @@ class ASTGraphDataModule(pl.LightningDataModule):
         else:
             self.environment = None
 
-    def _load_dataset_info(self, data_path):
-        with open(os.path.join(data_path, "metainfo.json"), "r") as f:
-            content = json.loads(f.read())
-            f.close()
-        adj_len = content["adj_len"]
-        feature_len = content["feature_len"]
-        total_length = content["length"]
-        offset = content["offset"]
-        file_list = content["file_list"]
-        for i in range(len(file_list)):
-            file_list[i] = os.path.join(os.path.abspath(data_path), file_list[i])
-        sorted(file_list)
-        return adj_len, feature_len, total_length, offset, file_list
-
-    def _get_test_index(self, data_dict: dict):
-        index = []
-        for binary_name in data_dict:
-            for function_name in data_dict[binary_name]:
-                for function_body in data_dict[binary_name][function_name]:
-                    index.append(function_body["index"])
-
-        return index
-
     def filter_environment_for_train(self, data_dict: dict, environment: tuple):
         # Need to modify to support the binary mode
         target_arch, target_opt = environment
         filtered_dict = copy.deepcopy(data_dict)
         for binary_name in data_dict:
             for function_name in data_dict[binary_name]:
-                filtered_dict[binary_name][function_name] = [
-                    x
-                    for x in filtered_dict[binary_name][function_name]
-                    if x["arch"] != target_arch or x["opt"] != target_opt
-                ]
+                filtered_dict[binary_name][function_name] = [x for x in filtered_dict[binary_name][function_name] if
+                                                             x["arch"] != target_arch or x["opt"] != target_opt]
 
         for binary_name in filtered_dict:
             bad_function_name_list = []
@@ -450,10 +367,7 @@ class ASTGraphDataModule(pl.LightningDataModule):
             for function_name in data_dict[binary_name]:
                 is_kick = True
                 for function_body in data_dict[binary_name][function_name]:
-                    if (
-                        function_body["arch"] == target_arch
-                        and function_body["opt"] == target_opt
-                    ):
+                    if function_body["arch"] == target_arch and function_body["opt"] == target_opt:
                         is_kick = False
                 if is_kick:
                     kick_function_name_list.append(function_name)
@@ -469,9 +383,8 @@ class ASTGraphDataModule(pl.LightningDataModule):
             del data_dict[kick_binary_name]
 
         for binary_name in data_dict:
-            assert (
-                len(data_dict[binary_name]) >= self.pool_size + 1
-            ), f"Binary {binary_name} has less than {self.pool_size + 1} functions"
+            assert len(data_dict[
+                           binary_name]) >= self.pool_size + 1, f"Binary {binary_name} has less than {self.pool_size + 1} functions"
         return data_dict
 
     def prepare_data(self):
@@ -492,20 +405,16 @@ class ASTGraphDataModule(pl.LightningDataModule):
         _, _, index_test_data = _load_pickle_data(test_path)
 
         if self.environment:
-            index_train_data = self.filter_environment_for_train(
-                index_train_data, self.environment
-            )
-            index_test_data = self.filter_environment_for_test(
-                index_test_data, self.environment
-            )
+            index_train_data = self.filter_environment_for_train(index_train_data, self.environment)
+            index_test_data = self.filter_environment_for_test(index_test_data, self.environment)
 
         self.max_length = adj_len
         self.feature_length = feature_len
 
-        all_data, _ = dgl.load_graphs(os.path.join(self.data_path, "dgl_graphs.dgl"))
+        dgl_path = os.path.join(self.data_path, "dgl_graphs.dgl")
 
         self.train_set = ASTGraphDataset(
-            data=all_data,
+            data_path=dgl_path,
             data_index=index_train_data,
             max_adj=self.max_length,
             feature_len=self.feature_length,
@@ -514,13 +423,13 @@ class ASTGraphDataModule(pl.LightningDataModule):
         )
 
         self.val_set = ASTGraphDataset(
-            data=all_data,
+            data_path=dgl_path,
             data_index=index_test_data,
             max_adj=self.max_length,
             feature_len=self.feature_length,
             pool_size=self.pool_size,
             mode=self.mode,
-            environment=self.environment,
+            environment=self.environment
         )
 
     def train_dataloader(self):
@@ -530,7 +439,7 @@ class ASTGraphDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             pin_memory=True,
             collate_fn=collate_fn,
-            # prefetch_factor=16
+            prefetch_factor=8
         )
 
     def val_dataloader(self):
@@ -546,13 +455,14 @@ class ASTGraphDataModule(pl.LightningDataModule):
 
 class ASTGraphRedisDataModule(pl.LightningDataModule):
     def __init__(
-        self,
-        data_name: str = "uboot",
-        pool_size: int = 0,
-        batch_size: int = 32,
-        num_workers: int = 16,
-        k_fold: int = 0,
-        data_path: str = "dataset/uboot_dataset",
+            self,
+            data_name: str = "uboot",
+            pool_size: int = 0,
+            batch_size: int = 32,
+            num_workers: int = 16,
+            k_fold: int = 0,
+            data_path: str = "dataset/uboot_dataset",
+
     ):
         super().__init__()
 
@@ -608,7 +518,7 @@ class ASTGraphRedisDataModule(pl.LightningDataModule):
             num_workers=self.num_workers,
             pin_memory=True,
             collate_fn=collate_fn,
-            prefetch_factor=4,
+            prefetch_factor=4
         )
 
     def val_dataloader(self):
@@ -624,13 +534,7 @@ class ASTGraphRedisDataModule(pl.LightningDataModule):
 
 if __name__ == "__main__":
     a0 = time.time()
-    p = ASTGraphRedisDataModule(
-        data_name="uboot",
-        pool_size=50,
-        batch_size=4,
-        num_workers=8,
-        k_fold=1,
-    )
+    p = ASTGraphRedisDataModule(data_name="uboot", pool_size=50, batch_size=4, num_workers=8, k_fold=1,)
     # p = ASTGraphDataModule(data_path="dataset/uboot_dataset", pool_size=50, batch_size=10, num_workers=4, k_fold=1)
     p.prepare_data()
     train = p.train_dataloader()

@@ -107,9 +107,9 @@ class InferenceModel:
     def single_dgl_to_embedding(self, data: dgl.DGLGraph):
         with torch.no_grad():
 
-            padding = self.max_length - data.num_nodes()
-            data = dgl.add_nodes(data, padding)
-            data = dgl.add_self_loop(data)
+            # padding = self.max_length - data.num_nodes()
+            # data = dgl.add_nodes(data, padding)
+            # data = dgl.add_self_loop(data)
 
             if self.config.cuda:
                 data = data.to("cuda")
