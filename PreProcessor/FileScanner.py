@@ -43,7 +43,7 @@ class FileTree:
 class FileScanner:
     def __init__(self, root_path: str):
         self.root_path = root_path
-        self.file_tree = FileTree()
+        self.file_tree: FileTree = FileTree()
 
     def scan(self):
         for arch_bin in os.listdir(self.root_path):

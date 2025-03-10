@@ -2,9 +2,9 @@ max_length: 1000
 k_fold: 5
 
 file_path:
-  op_path: /home/username/plc_test/dataset/openplc/op_file.pkl
-  root_path: /home/username/plc_test/dataset/openplc_dataset
-  save_path: /home/username/plc_test/dataset/openplc_dataset
+  op_path: /home/damaoooo/ReGraph/graph_dataset/binaries_openplc/op_file.pkl
+  root_path: /home/damaoooo/ReGraph/graph_dataset/binaries_openplc
+  save_path: /home/damaoooo/ReGraph/graph_dataset/binaries_openplc
 
 cache:
   read_op: False

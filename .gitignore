@@ -5,3 +5,6 @@ pretrained/
 *.xlsx
 
 __pycache__/
+
+temp*
+tmp*

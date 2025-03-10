@@ -1,5 +1,5 @@
 from DataGenerator import DataGenerator, DataGeneratorMultiProcessing
-from FileScanner import FileScanner
+from FileScanner import FileScanner, FileTree
 from GraphConverter import Converter
 from dataclasses import dataclass
 from line_profiler import LineProfiler
@@ -77,43 +77,25 @@ def read_config() -> Config:
 class OpenPLCScanner(FileScanner):
     def __init__(self, root_path: str):
         super().__init__(root_path)
+        self.file_tree: FileTree
         
     def scan(self):
-        for folder_name in os.listdir(self.root_path):
 
-            # Remove irrelevant directory
-            if '-' not in folder_name:
+        for arch in os.listdir(self.root_path):
+            arch_path = os.path.join(self.root_path, arch)
+            if not os.path.isdir(arch_path):
                 continue
-            
-            # If it is not a directory, skip
-            if not os.path.isdir(os.path.join(self.root_path, folder_name)):
-                continue
+            for opt in os.listdir(arch_path):
+                opt_path = os.path.join(arch_path, opt)
+                if not os.path.isdir(opt_path):
+                    continue
+                file_list = os.listdir(opt_path)
+                assert len(file_list) == 2
+                for file in file_list:
+                    file_folder = os.path.join(opt_path, file)
+                    if os.path.isdir(file_folder):
+                        self.file_tree.add_to_tree(binary_name="openplc", dot_file=file_folder, arch=arch, opt=opt)
 
-            if "arm" in folder_name:
-                arch = "arm"
-            elif "mips" in folder_name:
-                arch = "mips"
-            elif "powerpc" in folder_name:
-                arch = "powerpc"
-            else:
-                arch = "x86"
-                
-            if "O0" in folder_name:
-                opt_level = "O0"
-            elif "O1" in folder_name:
-                opt_level = "O1"
-            elif "O2" in folder_name:
-                opt_level = "O2"
-            elif "O3" in folder_name:
-                opt_level = "O3"
-            else:
-                opt_level = "O0"
-
-            binary_name = 'openplc'
-            dot_file_path = os.path.join(self.root_path, folder_name)
-            
-            self.file_tree.add_to_tree(binary_name=binary_name, dot_file=dot_file_path, arch=arch, opt=opt_level)
-            
         return self.file_tree
 
 def main():
