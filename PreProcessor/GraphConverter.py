@@ -375,8 +375,8 @@ class Converter:
         if G.name == "&lt;global&gt;" or G.name == "<global>":
             return
 
-        if G.name.startswith("function_"):
-            return
+        # if G.name.startswith("function_"):
+        #     return
 
         if len(G.nodes()) < self.min_length or len(G.nodes()) > self.max_length:
             return

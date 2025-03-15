@@ -23,6 +23,6 @@ hyper_parameters:
 path:
   # data_path: dataset/coreutil
   data_name: openplc
-  data_path: dataset/openplc
+  data_path: graph_dataset/binaries_openplc
   # load_checkpoint: "lightning_logs/version_9/checkpoints/last.ckpt"
   load_checkpoint: ""

@@ -15,7 +15,11 @@ JOERN_PATH="/home/damaoooo/Downloads/joern-cli"
 def clean_ext(folder, ext):
     for file in os.listdir(folder):
         if file.endswith(ext):
-            os.remove(os.path.join(folder, file))
+            # if file is a directory, remove it
+            if os.path.isdir(os.path.join(folder, file)):
+                shutil.rmtree(os.path.join(folder, file))
+            else:
+                os.remove(os.path.join(folder, file))
 
 
 def clean_dir(folder):
@@ -361,8 +365,8 @@ if __name__ == "__main__":
     # args = get_args()
     
     args = Args()
-    args.input1 = "./graph_dataset/openplc/g++-O0/Res0_g++-O0.o"
-    args.input2 = "./graph_dataset/openplc/arm-linux-gnueabi-g++-O3/Res0_arm-linux-gnueabi-g++-O3.o"
+    args.input1 = "graph_dataset/binaries_openplc/x86/O0/Res0_g++-O0.o"
+    args.input2 = "graph_dataset/binaries_openplc/arm/O3/Res0_arm-linux-gnueabi-g++-O3.o.strip"
     args.model = "./pretrained/openplc.ckpt"
     args.op_file = "./graph_dataset/openplc/op_file.pkl"
     args.k = 10
