@@ -90,7 +90,7 @@ class OpenPLCScanner(FileScanner):
                 if not os.path.isdir(opt_path):
                     continue
                 file_list = os.listdir(opt_path)
-                assert len(file_list) == 2
+                assert len(file_list) == 2, str(file_list)
                 for file in file_list:
                     file_folder = os.path.join(opt_path, file)
                     if os.path.isdir(file_folder):

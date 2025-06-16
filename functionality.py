@@ -343,34 +343,27 @@ def print_result(data: dict):
         )
 
 
-# def get_args():
-#     parser = argparse.ArgumentParser(description="Functionality Test")
-#     parser.add_argument("--input1", type=str, help="Input file 1", required=True)
-#     parser.add_argument("--input2", type=str, help="Input file 2", required=True)
-#     parser.add_argument("--model", type=str, help="Model file", required=True)
-#     parser.add_argument("--op_file", type=str, help="Operator file", required=True)
-#     parser.add_argument("-k", type=int, help="Top k", default=10)
-#     args = parser.parse_args()
-#     return args
+def get_args():
+    parser = argparse.ArgumentParser(description="Functionality Test")
+    parser.add_argument("--input1", type=str, help="Input file 1", required=True)
+    parser.add_argument("--input2", type=str, help="Input file 2", required=True)
+    parser.add_argument("--model", type=str, help="Model file", required=True)
+    parser.add_argument("--op_file", type=str, help="Operator file", required=True)
+    parser.add_argument("-k", type=int, help="Top k", default=10)
+    args = parser.parse_args()
+    return args
 
-class Args:
-    def __init__(self):
-        self.input1 = ""
-        self.input2 = ""
-        self.model = ""
-        self.op_file = ""
-        self.k = 10
+# class Args:
+#     def __init__(self):
+#         self.input1 = ""
+#         self.input2 = ""
+#         self.model = ""
+#         self.op_file = ""
+#         self.k = 10
 
 if __name__ == "__main__":
-    # args = get_args()
-    
-    args = Args()
-    args.input1 = "graph_dataset/binaries_openplc/x86/O0/Res0_g++-O0.o"
-    args.input2 = "graph_dataset/binaries_openplc/arm/O3/Res0_arm-linux-gnueabi-g++-O3.o.strip"
-    args.model = "./pretrained/openplc.ckpt"
-    args.op_file = "./graph_dataset/openplc/op_file.pkl"
-    args.k = 10
-    
+    args = get_args()
+
     data_frame, result_data = inference(
         args.input1, args.input2, args.model, args.op_file, args.k
     )

@@ -4,6 +4,7 @@ from typing import List
 import multiprocessing
 import rich
 import os
+import argparse
 
 def find_common_folders(file_list: List[str]):
     # Find the folders of the files, without repeating
@@ -153,7 +154,10 @@ class BinaryProcess:
         
 
 if __name__ == "__main__":
-    start_path = "/home/damaoooo/ReGraph/graph_dataset/binaries_openplc"
+    arg_parser = argparse.ArgumentParser(description="Lift and reoptimize binaries using RetDec and Clang, The lifted binaries are placed at the same place but with .re suffix")
+    arg_parser.add_argument("--start_path", "-s", type=str, required=True, help="The folder that contains the binary you want to lift and optimize")
+    args = arg_parser.parse_args()
+    start_path = args.start_path
     file_list = []
     
     for arch in os.listdir(start_path):
@@ -182,3 +186,5 @@ if __name__ == "__main__":
 
     binary_process = BinaryProcess(file_list, jobs=-1)
     binary_process.process_files()
+
+    print("Finished processing all binaries.")
